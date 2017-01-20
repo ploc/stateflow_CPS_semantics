@@ -5,13 +5,17 @@ type junction_name_t = string
 type path_t = state_name_t list
 type event_base_t = string
 type event_t      = event_base_t option
-
+type base_action_t = string
+type base_condition_t = string
+  
 (* P(r)etty printers *)
 let pp_state_name = Format.pp_print_string
 let pp_junction_name = Format.pp_print_string
 let pp_path fmt p = Utils.fprintf_list ~sep:"." pp_state_name fmt p
 let pp_event fmt e = match e with None -> Format.fprintf fmt "none" | Some s -> Format.fprintf fmt "%s" s
-
+let pp_base_act = Format.pp_print_string
+let pp_base_cond = Format.pp_print_string
+  
 (* Action and Condition types and functions. *)
 
 (* Actions are defined by string + the opening and closing of states *)
@@ -42,12 +46,12 @@ type a. Format.formatter -> a call_t -> unit =
     | Ecall -> Format.fprintf fmt "CallE"
     | Dcall -> Format.fprintf fmt "CallD"
     | Xcall -> Format.fprintf fmt "CallX"
-       
+  
 module type ActionType =
 sig
   type t
   val nil : t
-  val aquote : string -> t
+  val aquote : base_action_t -> t
   val open_path : path_t -> t
   val close_path : path_t -> t
   val call : 'c call_t -> 'c -> t
@@ -59,7 +63,7 @@ end
 module Action =
 struct
   type t =
-    | Quote : string -> t
+    | Quote : base_action_t -> t
     | Close : path_t -> t
     | Open  : path_t -> t
     | Call  : 'c call_t * 'c -> t
@@ -82,7 +86,7 @@ struct
   let pp_act fmt act =
     match act with
     | Call (c, a)      -> pp_call fmt c a
-    | Quote a          -> Format.fprintf fmt "%s" a
+    | Quote a          -> Format.fprintf fmt "%a" pp_base_act a
     | Close p          -> Format.fprintf fmt "Close(%a)" pp_path p
     | Open p           -> Format.fprintf fmt "Open(%a)" pp_path p
     | Nil              -> Format.fprintf fmt "Nil"
@@ -96,7 +100,7 @@ let _ = (module Action : ActionType)
 module type ConditionType =
 sig
   type t
-  val cquote : string -> t
+  val cquote : base_condition_t -> t
   val tru : t
   val active : path_t -> t
   val event : event_t -> t
@@ -109,7 +113,7 @@ end
   module Condition =
 struct
   type t =
-    | Quote of string
+    | Quote of base_condition_t
     | Active of path_t
     | Event of event_base_t
     | And of t * t
@@ -133,7 +137,7 @@ struct
     | Event e            -> Format.fprintf fmt "Event(%s)" e
     | Neg cond           -> Format.fprintf fmt "(neg %a)" pp_cond cond
     | And (cond1, cond2) -> Format.fprintf fmt "%a /\\ %a" pp_cond cond1 pp_cond cond2
-    | Quote c            -> Format.fprintf fmt "%s" c
+    | Quote c            -> Format.fprintf fmt "%a" pp_base_cond c
 
 end
 

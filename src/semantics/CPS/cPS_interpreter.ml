@@ -105,14 +105,15 @@ struct
       let cond = Transformer.(event trans.event && trans.condition) in
       Transformer.(eval_cond cond
 		     (eval_act (module Theta) trans.condition_act >> eval_dest trans.dest wrapper success' fail)
-		     fail)
+		     fail.local)
 
     let rec eval_T tl wrapper success fail =
       Log.log ~debug:false (fun fmt -> Format.fprintf fmt "@[<v 2>T[[%a]]@ " SF.pp_transitions tl);
       match tl with
-      | [] -> fail
+      | [] -> fail.global
+      | t::[] ->  eval_tau t wrapper success fail
       | t::tl ->
-	 let fail' = eval_T tl wrapper success fail in
+	 let fail' = { fail with local = eval_T tl wrapper success fail } in
 	 eval_tau t wrapper success fail'
 
     let frontier path =
@@ -141,7 +142,7 @@ struct
 	  | Or (_T, []) -> null
 	  | Or (_T, _S) -> let wrapper = eval_open_path Enter [] prefix in
 			   let success p_d = null in
-			   eval_T _T wrapper success bot
+			   eval_T _T wrapper success { local = bot; global = bot }
 	  | And (_S)    -> List.fold_right (fun p -> (>>) (Theta.theta E (prefix@[p]) [] Loose)) _S null
 	)
 	| D -> Transformer.(
@@ -174,8 +175,13 @@ struct
 	  let wrapper_o = eval_open_path Outer [] p in
 	  let success p_d = null in
 	  let fail_o =
-	    let fail_i = eval_C D p p_def.internal_composition in 
-	    eval_act (module Theta) p_def.state_actions.during_act >> eval_T p_def.inner_trans wrapper_i success fail_i in
+	    let fail_i =
+	      let same_fail_C = eval_C D p p_def.internal_composition in
+	      { local = same_fail_C; global = same_fail_C }
+	    in
+	    let same_fail_i = eval_act (module Theta) p_def.state_actions.during_act >> eval_T p_def.inner_trans wrapper_i success fail_i in
+	    { local = same_fail_i; global = same_fail_i }
+	  in
 	  eval_T p_def.outer_trans wrapper_o success fail_o
 	)
 	| X -> fun frontier -> Transformer.(

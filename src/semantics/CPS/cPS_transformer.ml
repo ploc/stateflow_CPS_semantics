@@ -8,7 +8,7 @@ type mode_t =
 
 
 type 't success_t = path_t -> 't
-type 't fail_t = 't
+type 't fail_t = { local: 't; global: 't }
 type 't wrapper_t = path_t -> 't -> 't
 
 type ('a, 'b, 't) tag_t =
@@ -41,7 +41,7 @@ let pp_tag : type a b t. Format.formatter -> (a, b, t) tag_t -> unit =
     | X -> Format.fprintf fmt "x"
     | J -> Format.fprintf fmt "j"
 
-
+(*
 module Proj1Theta (T : sig type t1 val bot1 : t1 type t2 val bot2 : t2 end) (Theta : ThetaType with type t = T.t1 * T.t2) : ThetaType with type t = T.t1 =
 struct
   type t = T.t1
@@ -75,7 +75,7 @@ struct
     | X -> (fun p f        -> snd (Theta.theta X p f))
     | J -> (fun j w2 s2 f2 -> snd (Theta.theta J j (w w2) (s s2) (f f2)))
 end
-
+*)
 
 module TransformerStub =
 struct
@@ -123,7 +123,7 @@ sig
 
   val ( == ) : t -> t -> bool
 end
-
+(*
 module Pair (T1 : ComparableTransformerType) (T2 : TransformerType) : ComparableTransformerType with type t = T1.t * T2.t =
 struct
   include TransformerStub
@@ -178,24 +178,27 @@ struct
 	(fun fmt -> T1.pp_component fmt Xcall c tr1)
 	(fun fmt -> T2.pp_component fmt Xcall c tr2))
 end
-
-module Evaluator : TransformerType with type t = (event_t * bool ActiveStates.Env.t -> event_t * bool ActiveStates.Env.t) =
+*)
+  
+module Evaluator : TransformerType with type t = (event_t * bool ActiveStates.Env.t * base_action_t list -> event_t * bool ActiveStates.Env.t * base_action_t list ) =
 struct
   include TransformerStub
 
-  type env_t = event_t * bool ActiveStates.Env.t (* Don't care for values yet *)
+  type env_t = event_t * bool ActiveStates.Env.t * base_action_t list (* Don't care for values yet *)
   type t = env_t -> env_t
  
   let null rho = rho
-
+  let add_action a (evt, rho, al) = (evt, rho, al@[a]) (* not very efficient but
+							  avoid to keep track of
+							  action order *)
   let bot _ = assert false
  
   let ( >> ) tr1 tr2 = fun rho -> rho |> tr1 |> tr2
 
   let ( ?? ) b tr = if b then tr else null
 
-  let eval_open p (evt, rho)  = (evt, ActiveStates.Env.add p true rho)
-  let eval_close p (evt, rho) = (evt, ActiveStates.Env.add p false rho)
+  let eval_open p (evt, rho, al)  = (evt, ActiveStates.Env.add p true rho, al)
+  let eval_close p (evt, rho, al) = (evt, ActiveStates.Env.add p false rho, al)
   let eval_call : type c. (module ThetaType with type t = t) -> c call_t -> c -> t =
     fun kenv ->
     let module Theta = (val kenv : ThetaType with type t = t) in	      
@@ -208,7 +211,7 @@ struct
     (* Format.printf "----- action = %a@." Action.pp_act action; *)
     match action with
     | Action.Call (c, a)      -> eval_call kenv c a
-    | Action.Quote a          -> null
+    | Action.Quote a          -> add_action a
     | Action.Open p           -> eval_open p
     | Action.Close p          -> eval_close p
     | Action.Nil              -> null
@@ -218,11 +221,11 @@ struct
     (* Format.printf "----- cond = %a@." Condition.pp_cond condition; *)
     match condition with
     | Condition.True               -> ok
-    | Condition.Active p           -> (fun rho -> if ActiveStates.Env.find p (snd rho) then ok rho else ko rho)
-    | Condition.Event e            -> (fun rho -> match fst rho with None -> ko rho | Some e' -> if e=e' then ok rho else ko rho)
+    | Condition.Active p           -> (fun ((evt, env, al) as rho) -> if ActiveStates.Env.find p env then ok rho else ko rho)
+    | Condition.Event e            -> (fun ((evt, env, al) as rho) -> match evt with None -> ko rho | Some e' -> if e=e' then ok rho else ko rho)
     | Condition.Neg cond           -> eval_cond cond ko ok
     | Condition.And (cond1, cond2) -> eval_cond cond1 (eval_cond cond2 ok ko) ko
-    | Condition.Quote c            -> null
+    | Condition.Quote c            -> add_action c >> ok (* invalid behavior but similar to the other: should evaluate condition *)
 
   let pp_transformer fmt tr =
     Format.fprintf fmt "<transformer>"

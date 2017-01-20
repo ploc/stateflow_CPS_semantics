@@ -4,6 +4,9 @@ open Format
 open Log
 open SF
 
+let actions_performed = ref []
+
+    
 (*******************************)
 
 type env_t = bool ActiveStates.Env.t (* Don't care for values yet *)
@@ -48,11 +51,12 @@ let theta_e, theta_d, theta_x =
   (fun id theta -> let (e,d,x) = theta_node id theta in d theta),
   (fun id theta -> let (e,d,x) = theta_node id theta in x theta)
 
+let add_action a = actions_performed := !actions_performed @ [a]
 
 let eval_act action theta rho =
   (match action with
   | Action.Call _  -> assert false
-  | Action.Quote s -> () (*Format.eprintf "----- action = %s@." s*)
+  | Action.Quote s -> add_action s; () (*Format.eprintf "----- action = %s@." s*)
   | Action.Nil  -> () (* no action *)
   | _ -> assert false (* other constructs should not appear here *)
   );
@@ -66,7 +70,8 @@ let rec eval_cond condition (evt, rho) =
   | Condition.Event e, None -> false
   | Condition.Neg cond, _ -> not (eval_cond cond (evt, rho))
   | Condition.And (cond1, cond2), _ -> (eval_cond cond1 (evt, rho)) && (eval_cond cond2 (evt, rho))
-  | Condition.Quote c, _ -> true
+  | Condition.Quote c, _ -> add_action c; true  (* invalid behavior but similar to the other: should evaluate condition *)
+    
   (* (match condition with Some s -> printf "----- cond = %s@." s | _ -> ()); *)
   (* true *)
 
@@ -238,15 +243,19 @@ let eval_Sd p p_def theta rho e =
 
 
 let eval_prog (s, defs) (e, rho) =
+  (* Action list is uglily encoded using global variables. Shame on me! *)
+  actions_performed := [];
   (* (match e with Some s -> printf "EVENT = %s@." s | _ -> ()); *)
   let theta = List.fold_left (
     fun accu d -> match d with
     | State (p, defp) -> { accu with cont_node = (p, (eval_Se p defp, eval_Sd p defp, eval_Sx p defp))::accu.cont_node  }
     | Junction (j, defj) -> { accu with cont_junc = (j, (eval_T defj))::accu.cont_junc  }
   ) {cont_node = []; cont_junc = []} defs in
-  if ActiveStates.Env.find [s] rho then
-    theta_d [s] theta rho e
-  else
-    theta_e [s] theta rho [] e
-
+  let res =
+    if ActiveStates.Env.find [s] rho then
+      theta_d [s] theta rho e
+    else
+      theta_e [s] theta rho [] e
+  in
+  res, !actions_performed
 

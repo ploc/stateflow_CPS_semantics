@@ -1,5 +1,4 @@
 open Datatype
-(* open Transformer2 *)
 open SF
 
 let name = "simple"

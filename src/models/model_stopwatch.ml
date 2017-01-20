@@ -133,7 +133,7 @@ let model =
   let tj2j3droite    = {
     event = no_event;
     condition = condition "sec==60";
-    condition_act  = action "min+=1";
+    condition_act  = action "sec=0; min+=1";
     transition_act = action "ac_trans_J2->J3_right";
     dest = (*DPath [smain;srun];*) DJunction "j3";
   }

@@ -63,8 +63,16 @@ let run_trace model func t =
     List.fold_left (fun (env, cpt) event ->
       Format.printf "#### %i@.%a@." cpt ActiveStates.Env.pp_env env;
       Format.printf "-- Event %a --@." Basetypes.pp_event event;
-      let env' = func (event, env) in
-    (* we do not consider produced events *)
+      let env', actions_performed = func (event, env) in
+      let _ =
+	match actions_performed with
+      | [] -> Format.printf "-- no action performed --@."
+      | _ -> (
+	Format.printf "@[<v 2>-- action performed --@ ";
+	List.iter (fun a -> Format.printf "%s@ " a) actions_performed;
+	Format.printf "@]@."
+      ) in
+      (* we do not consider produced events *)
       env', cpt+1
     ) (init_env, 1) t
   in
@@ -92,17 +100,28 @@ let _ =
        let eval_func = 
 	 match !eval_mode with
 	 | CPSEval -> 
-	    fun (evt, env) -> let _, env' = Sem.compute modularmode (evt, env) in env'
+	    fun (evt, env) ->
+	      let _, env', actions_performed = Sem.compute modularmode (evt, env, []) in
+	      env', actions_performed
 	 | EMSOFT05Eval ->
 	    Orig_Interpreter.eval_prog Model.model
 	 | CompareEval ->
 	    let evalCPS = Sem.compute modularmode in
 	    let evalEMSOFT05 = (Orig_Interpreter.eval_prog Model.model) in
-	    fun arg ->
-	      let _, env1 = evalCPS arg in
-	      let env2 = evalEMSOFT05 arg in
+	    fun ((evt, env) as arg) ->
+	      let _, env1, actionl1 = evalCPS (evt, env, []) in
+	      let env2, actionl2 = evalEMSOFT05 arg in
 	      if ActiveStates.Env.equal (=) env1 env2 then
-	 	env1
+	 	if actionl1 = actionl2 then
+		  env1, actionl1
+		else (
+		  Format.printf "##### ERROR: different behavior for interpreters ######@.";
+		  Format.printf "CPS Eval actions:@.%a@." (Utils.fprintf_list ~sep:"; " Format.pp_print_string) actionl1;
+		  Format.printf "EMSOFT05 Eval actions:@.%a@." (Utils.fprintf_list ~sep:"; " Format.pp_print_string) actionl2;
+	 	  Format.printf "@?";
+		  Format.printf "##### END OF ERROR ######@.";
+	 	  env1, actionl1
+		)
 	      else (
 	 	Format.printf "##### ERROR: different behavior for interpreters ######@.";
 	 	Format.printf "CPS Eval env:@.%a@." ActiveStates.Env.pp_env env1;
