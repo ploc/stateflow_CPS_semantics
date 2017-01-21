@@ -58,7 +58,9 @@ let usage =
     "Backends are interpretor, imperative code generator, lustre code generator."
 
 let run_trace model func t =
-  let init_env = Datatype.SF.init_env model in 
+  let init_env = Datatype.SF.init_env model in
+  let _ = Format.printf "Model definitions@.%a@.Initial state: %s @.####" Datatype.SF.pp_src (snd model) (fst model) in 
+  
   let final_env, cpt =
     List.fold_left (fun (env, cpt) event ->
       Format.printf "#### %i@.%a@." cpt ActiveStates.Env.pp_env env;

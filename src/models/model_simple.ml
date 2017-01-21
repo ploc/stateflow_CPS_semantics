@@ -77,4 +77,4 @@ let model : prog_t =
     in
     (state_main, src)
 
-let traces : trace_t list = []
+let traces : trace_t list = [[None; None]]
