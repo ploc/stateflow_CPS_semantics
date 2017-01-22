@@ -12,7 +12,10 @@ type backend = Eval | GenLus | GenImp
 (* Model choice *)
 let model_name = ref "simple"
 
-let models = [(module Model_simple : Datatype.MODEL_T); (module Model_stopwatch : Datatype.MODEL_T)]
+let models = [(module Model_simple : Datatype.MODEL_T);
+	      (module Model_stopwatch : Datatype.MODEL_T);
+	      (module Model_medium : Datatype.MODEL_T)
+	     ]
 let get_model_name m = let module M = (val m : Datatype.MODEL_T) in M.name
 let set_model name = 
   if List.exists (fun n -> get_model_name n = name) models then
