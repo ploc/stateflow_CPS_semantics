@@ -34,20 +34,20 @@ type state_def_t = {
   internal_composition : composition_t;
 }
 
-  type src_components_t =
-    | State of path_t * state_def_t
-    | Junction of junction_name_t * transitions_t
+type src_components_t =
+  | State of path_t * state_def_t
+  | Junction of junction_name_t * transitions_t
 
-  type prog_t = state_name_t * src_components_t list
-
-  type trace_t = event_t list
+type prog_t = state_name_t * src_components_t list
+  
+type trace_t = event_t list
     
-  module type MODEL_T = sig
-    val name : string
-    val model : prog_t
-    val traces: trace_t list
-  end
-
+module type MODEL_T = sig
+  val name : string
+  val model : prog_t
+  val traces: trace_t list
+end
+  
 (* Module (S)tate(F)low provides basic constructors for action, condition,
    events, as well as printer functions *)
 module SF =

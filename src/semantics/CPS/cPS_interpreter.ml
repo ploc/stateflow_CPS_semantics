@@ -139,10 +139,11 @@ struct
 	| E -> Transformer.(
 	  Log.log ~debug:false (fun fmt -> Format.fprintf fmt "@[<v 2>C_%a[[%a, %a]]@ " pp_tag tag pp_path prefix SF.pp_comp comp);
 	  match comp with
-	  | Or (_T, []) -> null
-	  | Or (_T, _S) -> let wrapper = eval_open_path Enter [] prefix in
-			   let success p_d = null in
-			   eval_T _T wrapper success { local = bot; global = bot }
+	  | Or (_T, [])   -> null
+	  | Or ([], [s0]) -> eval_open_path Enter prefix [] [s0] null
+	  | Or (_T, _S)   -> let wrapper = eval_open_path Enter [] prefix in
+			     let success p_d = null in
+			     eval_T _T wrapper success { local = bot; global = bot }
 	  | And (_S)    -> List.fold_right (fun p -> (>>) (Theta.theta E (prefix@[p]) [] Loose)) _S null
 	)
 	| D -> Transformer.(
